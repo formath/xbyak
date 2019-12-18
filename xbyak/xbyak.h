@@ -1775,6 +1775,7 @@ private:
 			db(longCode); dd(disp - longJmpSize);
 		}
 	}
+	bool isT_NEAR(LabelType type) const { return type == T_NEAR || (type == T_AUTO && isDefaultJmpT_NEAR_); }
 	template<class T>
 	void opJmp(T& label, LabelType type, uint8 shortCode, uint8 longCode, uint8 longPref)
 	{
@@ -1784,7 +1785,7 @@ private:
 			makeJmp(inner::VerifyInInt32(offset - size_), type, shortCode, longCode, longPref);
 		} else {
 			int jmpSize = 0;
-			if (type == T_NEAR) {
+			if (isT_NEAR(type)) {
 				jmpSize = 4;
 				if (longPref) db(longPref);
 				db(longCode); dd(0);
@@ -1799,7 +1800,7 @@ private:
 	void opJmpAbs(const void *addr, LabelType type, uint8 shortCode, uint8 longCode, uint8 longPref = 0)
 	{
 		if (isAutoGrow()) {
-			if (type != T_NEAR) throw Error(ERR_ONLY_T_NEAR_IS_SUPPORTED_IN_AUTO_GROW);
+			if (!isT_NEAR(type)) throw Error(ERR_ONLY_T_NEAR_IS_SUPPORTED_IN_AUTO_GROW);
 			if (size_ + 16 >= maxSize_) growMemory();
 			if (longPref) db(longPref);
 			db(longCode);
@@ -2293,6 +2294,9 @@ public:
 #ifndef XBYAK_DISABLE_SEGMENT
 	const Segment es, cs, ss, ds, fs, gs;
 #endif
+private:
+	bool isDefaultJmpT_NEAR_;
+public:
 	void L(const std::string& label) { labelMgr_.defineSlabel(label); }
 	void L(Label& label) { labelMgr_.defineClabel(label); }
 	Label L() { Label label; L(label); return label; }
@@ -2312,6 +2316,7 @@ public:
 	void putL(std::string label) { putL_inner(label); }
 	void putL(const Label& label) { putL_inner(label); }
 
+	void setDefaultJmpT_NEAR(bool near) { isDefaultJmpT_NEAR_ = near; }
 	void jmp(const Operand& op) { opR_ModM(op, BIT, 4, 0xFF, NONE, NONE, true); }
 	void jmp(std::string label, LabelType type = T_AUTO) { opJmp(label, type, 0xEB, 0xE9, 0); }
 	void jmp(const char *label, LabelType type = T_AUTO) { jmp(std::string(label), type); }
@@ -2570,6 +2575,7 @@ public:
 #ifndef XBYAK_DISABLE_SEGMENT
 		, es(Segment::es), cs(Segment::cs), ss(Segment::ss), ds(Segment::ds), fs(Segment::fs), gs(Segment::gs)
 #endif
+		, isDefaultJmpT_NEAR_(false)
 	{
 		labelMgr_.set(this);
 	}
